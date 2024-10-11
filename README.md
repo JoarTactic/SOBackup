@@ -6,5 +6,5 @@ El programa fue desarrollado para la materia de Sistemas Operativos, el cual deb
 
 ## Documentación
 La documentación correspondiente a este proyecto se puede encontrar en:
-[Documentación]([https://docs.google.com/document/d/1LmWvrZofBSCJoATmQdrziWC4EHy_jDRCppJTGdCcu9I/edit?usp=sharing](https://docs.google.com/document/d/17M_0l-6nomqirKwCnQHRVQXNm3b64-alb_blmVqNgRA/edit?usp=sharing))
+[Documentación]([https://docs.google.com/document/d/1LmWvrZofBSCJoATmQdrziWC4EHy_jDRCppJTGdCcu9I/edit?usp=sharing](https://docs.google.com/document/d/17M_0l-6nomqirKwCnQHRVQXNm3b64-alb_blmVqNgRA/edit?usp=sharing)
 
