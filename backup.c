@@ -183,6 +183,35 @@ int main(int num_args, char *args[]){
         exit(1);
     }
 
-    
+    //Creación del proceso hijo
+    int pid;
+    pid = fork();
+    switch (pid) {
+        case -1: //Error
+            printf("No se ha podido crear un hijo\n");
+            exit(-1);
+            break;
+        case 0: //Hijo
+            
+            break;
+        default: //Padre
+            int numero_archivos_respaldados = 0;
+            //Cerramos la lectura del padre en el pipe
+            close(pipefd[0]);
+            //Cerramos la escritura del padre en el pipe2
+		    close(pipe2fd[1]);
+
+            printf("PADRE(pid=): generando LISTA DE ARCHIVOS A RESPALDAR\n", getpid());
+            //Cambiamos a la ruta de la que haremos respaldo
+            chdir(real_path);
+            //Creamos un archivo con el número de archivos a respaldar en la primer línea
+            system ("ls -l |tail -n +2 |wc -1 > ../listadearchivos.txt");
+            //A partir de la segunda linea, hace un append de los nombres de los archivos
+            system ("ls -l >> ../listadearchivos.txt");
+            //Se agrega "fin" para identificar que ya no quedan mas archivos para respaldar
+            system("echo fin >> ../listadearchivos.txt");
+            exit(0);
+            break;
+    }
 
 }
