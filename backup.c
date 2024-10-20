@@ -32,4 +32,22 @@ int main(){
     free(real_backupPath);
     return 0;
 
+
+    //Creación de los arreglos para los pipes
+    int pipefd[2], pipe2fd[2];
+
+    //Creación del pipe 1
+    if (pipe(pipefd) < 0){
+        perror("No se pudo crear el pipe");
+        exit(1);
+    }
+
+    //Creación del pipe 2
+    if (pipe(pipe2fd) < 0){
+        perror("No se pudo crear el pipe");
+        exit(1);
+    }
+
+    
+
 }
