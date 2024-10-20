@@ -1,0 +1,23 @@
+PADRE:
+1.- El padre puede obtener los datos de entrada por: 
+    La entrada estándar (teclado)  
+    Por parámetros del programa 
+    Por un archivo.  
+Deberá de generar un archivo con la lista de los nombres de archivos del directorio a respaldar y el número total de archivos a respaldar
+2.- Deberá de crear el directorio de respaldo.  Si el directorio de respaldo ya existe deberá de eliminarlo. 
+Opcional: agregar al nombre del directorio la fecha_hora_minutos_segundos 
+3.- Envía al hijo el número total de archivos a respaldar y cada uno de los nombres de los archivos a respaldar, uno a la vez. 
+4.- El padre estará en un ciclo leyendo el nombre del archivo y enviándoselo a su hijo, cuando termine de enviar el último nombre del archivo, el padre deberá de enviar un mensaje clave al hijo para finalizar el respaldo. Por ejemplo “FIN”, TERMINADO”, … 
+5.- Una vez terminado el respaldo, el padre se queda pendiente con read(..) hasta que el hijo envié el número de archivos respaldados con éxito y realiza la comprobación. 
+6.- Imprime a pantalla el listado del directorio de respaldo y el número de archivos del directorio. 
+7.- Manda un mensaje a pantalla de que termino el proceso padre. 
+8.- Termina el proceso padre. 
+
+HIJO:
+1.- El hijo imprime un mensaje indicando que está esperando el mensaje del padre 
+2.- Se queda en espera con un ciclo en el read(…) hasta que el padre envíe el nombre del archivo a respaldar 
+3.- Cuando el hijo recibe el número (cadena de texto): 
+4.- No olvides convertirla a un entero (atoi(..))  
+5.- El hijo recibe del padre el nombre del archivo y realiza la copia del directorio origen al directorio destino. 
+6.- Imprimir a pantalla que está realizando el respaldo del archivo y deberá de indicar cuantos archivos están pendientes de respaldo. 
+7.- Cuando se procesa la terminación del respaldo del directorio, el hijo manda un mensaje indicando que termino. 
