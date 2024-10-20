@@ -210,6 +210,10 @@ int main(int num_args, char *args[]){
             system ("ls -l >> ../listadearchivos.txt");
             //Se agrega "fin" para identificar que ya no quedan mas archivos para respaldar
             system("echo fin >> ../listadearchivos.txt");
+            //Abrimos el archivo para leerlo
+            FILE *archivo;
+            archivo = fopen("../listadearchivos.txt", "r");
+            
             exit(0);
             break;
     }
