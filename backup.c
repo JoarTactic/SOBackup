@@ -251,6 +251,40 @@ int main(int num_args, char *args[]){
             //Se cierra la escritura cuando acabe de mandar los nombres al hijo
             close(pipefd[1]);
 
+            //Esperar respuesta del hijo con número de archivos respaldados
+		    int recibido = 0;
+		    while (1){
+    			recibido = read(pipe2fd[0],&numero_archivos_respaldados, sizeof(numero_archivos_respaldados));
+			    if (recibido > 0){
+    				break;
+			    }
+		    }
+		    printf("PADRE(pid=): Recibe el total de %d archivos respaldados con exito\n", getpid(), numero_archivos_respaldados);
+		
+            fclose(archivo);
+		    int archivos = numero_archivos_respaldados;
+		    //Comprueba el numero de archivos respaldados
+		    printf("(PADRE PID: %d):Comprobando respaldo...\n",getpid());
+	    	printf("===========================================\n");
+
+		    //Comando para listar el respaldo y meterlo a comprobar_respaldo.txt
+		    char comprobar_respaldo[100];
+		    strcpy(comprobar_respaldo, "ls -1 ");
+		    strcpy(comprobar_respaldo + strlen(comprobar_respaldo), backupPath);
+		    strcpy(comprobar_respaldo + strlen(comprobar_respaldo)," > ../comprobar_respaldo.txt");
+		    system(comprobar_respaldo);
+		
+            //Abre el archivo en modo lectura y va imprimiendo todas las lineas
+		    archivo = fopen("../comprobar_respaldo.txt","r");
+		    for(int i=0;i<archivos;i++){
+    			printf("%s\n", fgets(linea, sizeof(linea), archivo));
+		    }
+            //Imprime un mensaje para indicar que terminó de comprobar el respaldo
+		    printf("ARCHIVOS RESPALDADOS\n");
+		    fclose(archivo);
+		    printf("=========================================================\n");
+		    printf("\nTermino el proceso padre \n");
+
             exit(0);
             break;
     }
