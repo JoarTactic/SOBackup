@@ -185,22 +185,22 @@ int main(int num_args, char *args[]){
             printf("No se ha podido crear un hijo\n");
             exit(-1);
             break;
-	case 0: // Hijo
-	close(pipefd[1]);  // Cerrar el extremo de escritura del pipe padre-hijo
+	    case 0: // Hijo
+    	close(pipefd[1]);  // Cerrar el extremo de escritura del pipe padre-hijo
         close(pipe2fd[0]);  // Cerrar el extremo de lectura del pipe hijo-padre
-	//Leer la ruta del respaldo
-	char buffer [256];
-	read(pipefd[0], buffer, sizeof(buffer));
-	// Leer el número de archivos a respaldar
+	    //Leer la ruta del respaldo
+	    char buffer [256];
+	    read(pipefd[0], buffer, sizeof(buffer));
+	    // Leer el número de archivos a respaldar
     	int num_archivos;
     	read(pipefd[0], &num_archivos, sizeof(num_archivos));
 		
-	char carpeta[256];  // Declarar el buffer 'carpeta'
-	 strcpy(carpeta, buffer);
+	    char carpeta[256];  // Declarar el buffer 'carpeta'
+	    strcpy(carpeta, buffer);
         
     
 
-    for (int i = 0; i < num_archivos; i++) {
+        for (int i = 0; i < num_archivos; i++) {
         read(pipefd[0], buffer, sizeof(buffer));  // Recibe el nombre del archivo
         
         // Formar las rutas de origen y destino
@@ -220,20 +220,20 @@ int main(int num_args, char *args[]){
         fclose(origen);
         fclose(destino);}
 
-	write(pipe2fd[1], &num_archivos, sizeof(num_archivos));
+	    write(pipe2fd[1], &num_archivos, sizeof(num_archivos));
         close(pipefd[0]);
         close(pipe2fd[1]);
         exit(0);
-    }
+    
 		
 
-    // Informar al padre cuántos archivos se respaldaron
-    int archivos_ya_respaldados = num_archivos;
-    write(pipe2fd[1], &archivos_ya_respaldados, sizeof(archivos_ya_respaldados));	
+        // Informar al padre cuántos archivos se respaldaron
+        int archivos_ya_respaldados = num_archivos;
+        write(pipe2fd[1], &archivos_ya_respaldados, sizeof(archivos_ya_respaldados));	
            
-	// Cerrar pipes
-    close(pipefd[0]);
-    close(pipe2fd[1]);
+    	// Cerrar pipes
+        close(pipefd[0]);
+        close(pipe2fd[1]);
             break;
         default: //Padre
             int numero_archivos_respaldados = 0;
@@ -263,7 +263,7 @@ int main(int num_args, char *args[]){
             
             //Le enviamos al hijo el numero de archivos a respaldar
             static char linea[100];
-            //lo obtiene como char
+            //Lo obtiene como char
             char texto_numero_archivos = fgets(linea, sizeof(linea), archivo);
             //Convertirlo a número
             int numero_archivos = atoi(texto_numero_archivos);
