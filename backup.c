@@ -192,6 +192,18 @@ int main(int num_args, char *args[]){
             exit(-1);
             break;
         case 0: //Hijo
+            //Va a recibir los mensajes por medio del buffer
+            char buffer[100];
+            int archivos_ya_respaldados = 0;
+            //Cerramos la escritura del hijo en el pipe
+            close(pipefd[1]);
+            //Cerramos la lectura del hijo en el pipe2
+		    close(pipe2fd[0]);
+
+            //Lee el nombre de la carpeta
+            read(pipefd[0],buffer,sizeof(buffer));
+		    char carpeta[100];
+		    strcpy(carpeta,buffer);
             
             break;
         default: //Padre
