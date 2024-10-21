@@ -186,54 +186,43 @@ int main(int num_args, char *args[]){
             exit(-1);
             break;
 	    case 0: // Hijo
-    	close(pipefd[1]);  // Cerrar el extremo de escritura del pipe padre-hijo
-        close(pipe2fd[0]);  // Cerrar el extremo de lectura del pipe hijo-padre
-	    //Leer la ruta del respaldo
-	    char buffer [256];
-	    read(pipefd[0], buffer, sizeof(buffer));
-	    // Leer el número de archivos a respaldar
-    	int num_archivos;
-    	read(pipefd[0], &num_archivos, sizeof(num_archivos));
+    	    close(pipefd[1]);  // Cerrar el extremo de escritura del pipe padre-hijo
+            close(pipe2fd[0]);  // Cerrar el extremo de lectura del pipe hijo-padre
+	        //Leer la ruta del respaldo
+	        char buffer [256];
+	        read(pipefd[0], buffer, sizeof(buffer));
+	        // Leer el número de archivos a respaldar
+    	    int num_archivos;
+    	    read(pipefd[0], &num_archivos, sizeof(num_archivos));
 		
-	    char carpeta[256];  // Declarar el buffer 'carpeta'
-	    strcpy(carpeta, buffer);
-        
-    
+	        char carpeta[256];  // Declarar el buffer 'carpeta'
+	        strcpy(carpeta, buffer);
 
-        for (int i = 0; i < num_archivos; i++) {
-        read(pipefd[0], buffer, sizeof(buffer));  // Recibe el nombre del archivo
+            for (int i = 0; i < num_archivos; i++) {
+            read(pipefd[0], buffer, sizeof(buffer));  // Recibe el nombre del archivo
         
-        // Formar las rutas de origen y destino
-        char ruta_origen[256], ruta_destino[256];
-        snprintf(ruta_origen, sizeof(ruta_origen), "%s/%s", real_docsPath, buffer);
-        snprintf(ruta_destino, sizeof(ruta_destino), "%s/%s", carpeta, buffer);
+            // Formar las rutas de origen y destino
+            char ruta_origen[256], ruta_destino[256];
+            snprintf(ruta_origen, sizeof(ruta_origen), "%s/%s", real_docsPath, buffer);
+            snprintf(ruta_destino, sizeof(ruta_destino), "%s/%s", carpeta, buffer);
 
-        // Copiar archivo
-        FILE *origen = fopen(ruta_origen, "r");
-        FILE *destino = fopen(ruta_destino, "w");
-        if (origen != NULL && destino != NULL) {
-        	char c;
-        while ((c = fgetc(origen)) != EOF) {
-                fputc(c, destino);
+            // Copiar archivo
+            FILE *origen = fopen(ruta_origen, "r");
+            FILE *destino = fopen(ruta_destino, "w");
+            if (origen != NULL && destino != NULL) {
+            	char c;
+                while ((c = fgetc(origen)) != EOF) {
+                    fputc(c, destino);
                 }
             }
-        fclose(origen);
-        fclose(destino);}
+            fclose(origen);
+            fclose(destino);}
 
-	    write(pipe2fd[1], &num_archivos, sizeof(num_archivos));
-        close(pipefd[0]);
-        close(pipe2fd[1]);
-        exit(0);
-    
-		
-
-        // Informar al padre cuántos archivos se respaldaron
-        int archivos_ya_respaldados = num_archivos;
-        write(pipe2fd[1], &archivos_ya_respaldados, sizeof(archivos_ya_respaldados));	
-           
-    	// Cerrar pipes
-        close(pipefd[0]);
-        close(pipe2fd[1]);
+            // Informar al padre cuántos archivos se respaldaron
+	        write(pipe2fd[1], &num_archivos, sizeof(num_archivos));
+            close(pipefd[0]);
+            close(pipe2fd[1]);
+            exit(0);
             break;
         default: //Padre
             int numero_archivos_respaldados = 0;
