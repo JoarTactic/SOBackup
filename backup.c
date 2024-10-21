@@ -171,14 +171,8 @@ int main(int num_args, char *args[]){
     //Creación de los arreglos para los pipes
     int pipefd[2], pipe2fd[2];
 
-    //Creación del pipe 1
-    if (pipe(pipefd) < 0){
-        perror("No se pudo crear el pipe");
-        exit(1);
-    }
-
-    //Creación del pipe 2
-    if (pipe(pipe2fd) < 0){
+   //Creación del pipe 1
+    if (pipe(pipefd) < 0 || pipe(pipe2fd) < 0){
         perror("No se pudo crear el pipe");
         exit(1);
     }
@@ -191,20 +185,36 @@ int main(int num_args, char *args[]){
             printf("No se ha podido crear un hijo\n");
             exit(-1);
             break;
-        case 0: //Hijo
-            //Va a recibir los mensajes por medio del buffer
-            char buffer[100];
-            int archivos_ya_respaldados = 0;
-            //Cerramos la escritura del hijo en el pipe
-            close(pipefd[1]);
-            //Cerramos la lectura del hijo en el pipe2
-		    close(pipe2fd[0]);
+	case 0: // Hijo
+    // Leer la ruta del respaldo
+    read(pipefd[0], buffer, sizeof(buffer));
+    strcpy(carpeta, buffer);
 
-            //Lee el nombre de la carpeta
-            read(pipefd[0],buffer,sizeof(buffer));
-		    char carpeta[100];
-		    strcpy(carpeta,buffer);
-            
+    // Leer el número de archivos a respaldar
+    int num_archivos;
+    read(pipefd[0], &num_archivos, sizeof(num_archivos));
+
+    for (int i = 0; i < num_archivos; i++) {
+        read(pipefd[0], buffer, sizeof(buffer));  // Recibe el nombre del archivo
+        
+        // Formar las rutas de origen y destino
+        char ruta_origen[256], ruta_destino[256];
+        snprintf(ruta_origen, sizeof(ruta_origen), "%s/%s", real_docsPath, buffer);
+        snprintf(ruta_destino, sizeof(ruta_destino), "%s/%s", carpeta, buffer);
+
+        // Usar `cp` o copiar manualmente el archivo
+        char comando[512];
+        snprintf(comando, sizeof(comando), "cp %s %s", ruta_origen, ruta_destino);
+        system(comando);
+    }
+
+    // Informar al padre cuántos archivos se respaldaron
+    int archivos_ya_respaldados = num_archivos;
+    write(pipe2fd[1], &archivos_ya_respaldados, sizeof(archivos_ya_respaldados));	
+           
+	// Cerrar pipes
+    close(pipefd[0]);
+    close(pipe2fd[1]);
             break;
         default: //Padre
             int numero_archivos_respaldados = 0;
