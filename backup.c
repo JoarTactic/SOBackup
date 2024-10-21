@@ -171,7 +171,7 @@ int main(int num_args, char *args[]){
     //Creación de los arreglos para los pipes
     int pipefd[2], pipe2fd[2];
 
-   //Creación del pipe 1
+   //Creación de los pipes
     if (pipe(pipefd) < 0 || pipe(pipe2fd) < 0){
         perror("No se pudo crear el pipe");
         exit(1);
@@ -186,13 +186,19 @@ int main(int num_args, char *args[]){
             exit(-1);
             break;
 	case 0: // Hijo
-    // Leer la ruta del respaldo
-    read(pipefd[0], buffer, sizeof(buffer));
-    strcpy(carpeta, buffer);
-
-    // Leer el número de archivos a respaldar
-    int num_archivos;
-    read(pipefd[0], &num_archivos, sizeof(num_archivos));
+	close(pipefd[1]);  // Cerrar el extremo de escritura del pipe padre-hijo
+        close(pipe2fd[0]);  // Cerrar el extremo de lectura del pipe hijo-padre
+	//Leer la ruta del respaldo
+	char buffer [256];
+	read(pipefd[0], buffer, sizeof(buffer));
+	// Leer el número de archivos a respaldar
+    	int num_archivos;
+    	read(pipefd[0], &num_archivos, sizeof(num_archivos));
+		
+	char carpeta[256];  // Declarar el buffer 'carpeta'
+	 strcpy(carpeta, buffer);
+        
+    
 
     for (int i = 0; i < num_archivos; i++) {
         read(pipefd[0], buffer, sizeof(buffer));  // Recibe el nombre del archivo
@@ -202,11 +208,24 @@ int main(int num_args, char *args[]){
         snprintf(ruta_origen, sizeof(ruta_origen), "%s/%s", real_docsPath, buffer);
         snprintf(ruta_destino, sizeof(ruta_destino), "%s/%s", carpeta, buffer);
 
-        // Usar `cp` o copiar manualmente el archivo
-        char comando[512];
-        snprintf(comando, sizeof(comando), "cp %s %s", ruta_origen, ruta_destino);
-        system(comando);
+        // Copiar archivo
+        FILE *origen = fopen(ruta_origen, "r");
+        FILE *destino = fopen(ruta_destino, "w");
+        if (origen != NULL && destino != NULL) {
+        	char c;
+        while ((c = fgetc(origen)) != EOF) {
+                fputc(c, destino);
+                }
+            }
+        fclose(origen);
+        fclose(destino);}
+
+	write(pipe2fd[1], &num_archivos, sizeof(num_archivos));
+        close(pipefd[0]);
+        close(pipe2fd[1]);
+        exit(0);
     }
+		
 
     // Informar al padre cuántos archivos se respaldaron
     int archivos_ya_respaldados = num_archivos;
@@ -227,7 +246,7 @@ int main(int num_args, char *args[]){
             //Cambiamos a la ruta de la que haremos respaldo
             chdir(real_docsPath);
             //Creamos un archivo con el número de archivos a respaldar en la primer línea
-            system ("ls -l |tail -n +2 |wc -1 > ../listadearchivos.txt");
+            system ("ls -l |tail -n +2 |wc -l > ../listadearchivos.txt");
             //A partir de la segunda linea, hace un append de los nombres de los archivos
             system ("ls -l >> ../listadearchivos.txt");
             //Se agrega "fin" para identificar que ya no quedan mas archivos para respaldar
