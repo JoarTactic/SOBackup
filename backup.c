@@ -203,7 +203,7 @@ int main(int num_args, char *args[]){
 
             printf("PADRE(pid=): generando LISTA DE ARCHIVOS A RESPALDAR\n", getpid());
             //Cambiamos a la ruta de la que haremos respaldo
-            chdir(real_path);
+            chdir(real_docsPath);
             //Creamos un archivo con el número de archivos a respaldar en la primer línea
             system ("ls -l |tail -n +2 |wc -1 > ../listadearchivos.txt");
             //A partir de la segunda linea, hace un append de los nombres de los archivos
@@ -214,6 +214,31 @@ int main(int num_args, char *args[]){
             FILE *archivo;
             archivo = fopen("../listadearchivos.txt", "r");
             
+
+            //Le enviamos al hijo la ruta de la carpeta
+            char buffer[100];
+            strcpy(buffer, backupPath);
+            write (pipefd[1], buffer, sizeof(buffer));
+            
+            //Le enviamos al hijo el numero de archivos a respaldar
+            static char linea[100];
+            //lo obtiene como char
+            char texto_numero_archivos = fgets(linea, sizeof(linea), archivo);
+            //Convertirlo a número
+            int numero_archivos = atoi(texto_numero_archivos);
+            //Se manda ese número al hijo
+            write(pipefd[1], &numero_archivos, sizeof(numero_archivos));
+            //Se manda 1 por 1 el nombre de los archivos al hijo
+            int i = numero_archivos;
+            while (i > -1){
+                char nombre_archivo = fgets(linea, sizeof(linea), archivo);
+                strcpy(buffer, nombre_archivo);
+                write(pipefd[1], buffer, sizeof(buffer));
+                i--;
+            }
+            //Se cierra la escritura cuando acabe de mandar los nombres al hijo
+            close(pipefd[1]);
+
             exit(0);
             break;
     }
