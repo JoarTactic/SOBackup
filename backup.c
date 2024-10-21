@@ -247,7 +247,7 @@ int main(int num_args, char *args[]){
 
             //Le enviamos al hijo la ruta de la carpeta
             char buffer[100];
-            strcpy(buffer, backupPath);
+            strcpy(buffer, real_backupPath);
             write (pipefd[1], buffer, sizeof(buffer));
             
             //Le enviamos al hijo el numero de archivos a respaldar
