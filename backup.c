@@ -59,10 +59,8 @@ void eliminarDirectorio(const char *ruta_relativa)
             closedir(directorio);
 
             // Eliminar el directorio vacío
-            if (rmdir(ruta_relativa) == 0)
-                printf("removed directory '%s'\n", ruta_relativa);
-            else
-                fprintf(stderr, "Error al eliminar el directorio '%s'.\n", ruta_relativa);
+            if(rmdir(ruta_relativa) == 0){ printf("removed directory '%s'\n", ruta_relativa);}
+            else {fprintf(stderr, "Error al eliminar el directorio '%s'.\n", ruta_relativa);}
         }
         else
         { // si es un archivo en vez de un directorio
@@ -86,52 +84,46 @@ void enlistarArchivos(const char *ruta_relativa, FILE *archivo, int *contador)
     // Se obtene información del archivo/directorio
     if (stat(ruta_relativa, &info) == 0)
     {
-        DIR *objetivo = opendir(ruta_relativa);
-        struct dirent *entrada;
-
-        if (objetivo == NULL)
+        if (S_ISDIR(info.st_mode))
         {
-            fprintf(stderr, "Error abriendo el directorio '%s'.\n", ruta_relativa);
-            return;
-        }
-        // Lee el contenido del directorio
-        while ((entrada = readdir(objetivo)) != NULL)
-        {
-            // Ignorar "." y "..", correspondiente a el directorio actual y el directorio padre
-            // respectivamente. Son entradas especiales presentes en todos los directorios de
-            // sistemas tipo UNIX
-            if (strcmp(entrada->d_name, ".") == 0 || strcmp(entrada->d_name, "..") == 0)
-            {
-                continue; // Se salta a la siguiente iteración del while
-            }
 
-            // Se calcula el tamaño necesario para almacenar la ruta relativa completa
-            size_t longitud_ruta = strlen(ruta_relativa) + strlen(entrada->d_name) + 2; // +2 para '/' y '\0'
-            // Se asigna memoria dinámica
-            char *ruta_elemento = (char *)malloc(longitud_ruta * sizeof(char));
-            if (ruta_elemento == NULL)
+            DIR *objetivo = opendir(ruta_relativa);
+            struct dirent *entrada;
+
+            if (objetivo == NULL)
             {
-                fprintf(stderr, "Error: No se pudo asignar memoria al nombre de subdirectorio.\n");
-                closedir(objetivo); // Asegurarse de cerrar el directorio antes de salir por falla
+                fprintf(stderr, "Error abriendo el directorio '%s'.\n", ruta_relativa);
                 return;
             }
-            // Construir la ruta del elemento
-            snprintf(ruta_elemento, longitud_ruta, "%s/%s", ruta_relativa, entrada->d_name);
-
-            if (S_ISDIR(info.st_mode))
+            // Lee el contenido del directorio
+            while ((entrada = readdir(objetivo)) != NULL)
             {
+                if (strcmp(entrada->d_name, ".") == 0 || strcmp(entrada->d_name, "..") == 0)
+                {
+                    continue; // Se salta a la siguiente iteración del while
+                }
+                // Se calcula el tamaño necesario para almacenar la ruta relativa completa
+                size_t longitud_ruta = strlen(ruta_relativa) + strlen(entrada->d_name) + 2; // +2 para '/' y '\0'
+                // Se asigna memoria dinámica
+                char *ruta_elemento = (char *)malloc(longitud_ruta * sizeof(char));
+                if (ruta_elemento == NULL)
+                {
+                    fprintf(stderr, "Error: No se pudo asignar memoria al nombre de subdirectorio.\n");
+                    closedir(objetivo); // Asegurarse de cerrar el directorio antes de salir por falla
+                    return;
+                }
+                // Construir la ruta del elemento
+                snprintf(ruta_elemento, longitud_ruta, "%s/%s", ruta_relativa, entrada->d_name);
                 enlistarArchivos(ruta_elemento, archivo, contador);
                 free(ruta_elemento);
             }
-            else
-            {
-                (*contador)++;
-                snprintf(ruta_elemento, longitud_ruta, "%s/%s", ruta_relativa, entrada->d_name);
-                fprintf(archivo, "%s\n", ruta_elemento);
-                free(ruta_elemento);
-            }
+            closedir(objetivo);
         }
-        closedir(objetivo);
+        else
+        {
+            fprintf(archivo, "%s\n", ruta_relativa);
+            (*contador)++;
+        }
     }
     else
     {
@@ -166,7 +158,6 @@ int main(int num_args, char *args[])
     // Directorio donde se almacenará el respaldo
     char *backupPath = args[2];
     char *real_backupPath;
-    
 
     // Creación de los arreglos para los pipes
     int pipefd[2], pipe2fd[2];
@@ -239,14 +230,14 @@ int main(int num_args, char *args[])
 
         // PASO 1: GENERAR UN ARCHIVO CON LA LISTA DE NOMBRES DE ARCHIVOS A RESPALDAR Y NUMERO TOTAL
         FILE *archivo = fopen(LISTADO_ARCHIVOS, "w");
-        if (archivo == NULL){
+        if (archivo == NULL)
+        {
             fprintf(stderr, "Error al abrir el archivo '%s'.\n", LISTADO_ARCHIVOS);
             return 1;
         }
         int contador = 0; // Contador de archivos
         // Llamar a la función para listar archivos
         enlistarArchivos(docsPath, archivo, &contador);
-
 
         // PASO2: SE CREA EL DIRECTORIO DE RESPALDO. SI YA EXISTE, SE ELIMINA
         // Fecha y hora actual
