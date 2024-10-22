@@ -7,13 +7,17 @@
 #include <time.h>
 
 #define ARCHIVO_RESPALDO "ultimo_respaldo.txt"
+#define LISTADO_ARCHIVOS "./listado_Archivos.txt"
 
 // Función recursiva para eliminar archivos/directorios y listar su eliminación
-void eliminarDirectorio(const char *ruta_relativa){
+void eliminarDirectorio(const char *ruta_relativa)
+{
     struct stat info;
     // Se obtene información del archivo/directorio
-    if (stat(ruta_relativa, &info) == 0){
-        if (S_ISDIR(info.st_mode)){// Si es un directorio. Función de la libreria stat
+    if (stat(ruta_relativa, &info) == 0)
+    {
+        if (S_ISDIR(info.st_mode))
+        {                                             // Si es un directorio. Función de la libreria stat
             DIR *directorio = opendir(ruta_relativa); // opendir de la liberia dirent.h
             // La estructura dirent representa las entradas de un directorio
             // Se usa para interactuar con el contenido del directorio y saber información
@@ -55,18 +59,89 @@ void eliminarDirectorio(const char *ruta_relativa){
             closedir(directorio);
 
             // Eliminar el directorio vacío
-            if (rmdir(ruta_relativa) == 0) printf("removed directory '%s'\n", ruta_relativa);
-            else fprintf(stderr, "Error al eliminar el directorio '%s'.\n", ruta_relativa);
+            if (rmdir(ruta_relativa) == 0)
+                printf("removed directory '%s'\n", ruta_relativa);
+            else
+                fprintf(stderr, "Error al eliminar el directorio '%s'.\n", ruta_relativa);
         }
-        else{ // si es un archivo en vez de un directorio
-        //Con unlink() de desvincula el archivo con el directorio, y posteriormente se libera su memoria
-            if (unlink(ruta_relativa) == 0) printf("removed '%s'\n", ruta_relativa);
-            else fprintf(stderr, "Error al eliminar el archivo '%s'.\n", ruta_relativa);
+        else
+        { // si es un archivo en vez de un directorio
+            // Con unlink() de desvincula el archivo con el directorio, y posteriormente se libera su memoria
+            if (unlink(ruta_relativa) == 0)
+                printf("removed '%s'\n", ruta_relativa);
+            else
+                fprintf(stderr, "Error al eliminar el archivo '%s'.\n", ruta_relativa);
         }
     }
-    else{
+    else
+    {
         fprintf(stderr, "Error al obtener la información de '%s'.\n", ruta_relativa);
     }
+}
+
+// Para poner en un txt la lista
+void enlistarArchivos(const char *ruta_relativa, FILE *archivo, int *contador)
+{
+    struct stat info;
+    // Se obtene información del archivo/directorio
+    if (stat(ruta_relativa, &info) == 0)
+    {
+        DIR *objetivo = opendir(ruta_relativa);
+        struct dirent *entrada;
+
+        if (objetivo == NULL)
+        {
+            fprintf(stderr, "Error abriendo el directorio '%s'.\n", ruta_relativa);
+            return;
+        }
+        // Lee el contenido del directorio
+        while ((entrada = readdir(objetivo)) != NULL)
+        {
+            // Ignorar "." y "..", correspondiente a el directorio actual y el directorio padre
+            // respectivamente. Son entradas especiales presentes en todos los directorios de
+            // sistemas tipo UNIX
+            if (strcmp(entrada->d_name, ".") == 0 || strcmp(entrada->d_name, "..") == 0)
+            {
+                continue; // Se salta a la siguiente iteración del while
+            }
+
+            // Se calcula el tamaño necesario para almacenar la ruta relativa completa
+            size_t longitud_ruta = strlen(ruta_relativa) + strlen(entrada->d_name) + 2; // +2 para '/' y '\0'
+            // Se asigna memoria dinámica
+            char *ruta_elemento = (char *)malloc(longitud_ruta * sizeof(char));
+            if (ruta_elemento == NULL)
+            {
+                fprintf(stderr, "Error: No se pudo asignar memoria al nombre de subdirectorio.\n");
+                closedir(objetivo); // Asegurarse de cerrar el directorio antes de salir por falla
+                return;
+            }
+            // Construir la ruta del elemento
+            snprintf(ruta_elemento, longitud_ruta, "%s/%s", ruta_relativa, entrada->d_name);
+
+            if (S_ISDIR(info.st_mode))
+            {
+                enlistarArchivos(ruta_elemento, archivo, contador);
+                free(ruta_elemento);
+            }
+            else
+            {
+                (*contador)++;
+                snprintf(ruta_elemento, longitud_ruta, "%s/%s", ruta_relativa, entrada->d_name);
+                fprintf(archivo, "%s\n", ruta_elemento);
+                free(ruta_elemento);
+            }
+        }
+        closedir(objetivo);
+    }
+    else
+    {
+        fprintf(stderr, "Error al obtener la información de '%s'.\n", ruta_relativa);
+    }
+    // Escribir la cantidad de archivos en la primera línea
+    rewind(archivo); // Volver al inicio del archivo
+    fprintf(archivo, "%d\n", *contador);
+    // Escribir "fin" en la última línea
+    fprintf(archivo, "fin\n");
 }
 
 /**
@@ -91,22 +166,7 @@ int main(int num_args, char *args[])
     // Directorio donde se almacenará el respaldo
     char *backupPath = args[2];
     char *real_backupPath;
-    // Las variables anteriores deberán ser asignadas con los argumentos de main que se introduzcan al ejecutar el programa
-
-    //=================================================================================
-    // Ejemplo de como asignar memoria dinámicamente para la ruta absoluta
-    /**
-     * char *path = "./backup.c";
-     * char *real_path;
-     * real_path = realpath(path, NULL);  // realpath() asigna memoria si el segundo argumento es NULL
-     * if (real_path != NULL) {
-            printf("La ruta absoluta es: %s\n", real_path);
-            free(real_path);  // Libera la memoria asignada por realpath
-        } else {
-            perror("Error obteniendo la ruta absoluta");
-        }
-     */
-    //=================================================================================
+    
 
     // Creación de los arreglos para los pipes
     int pipefd[2], pipe2fd[2];
@@ -178,18 +238,15 @@ int main(int num_args, char *args[])
         close(pipe2fd[1]);
 
         // PASO 1: GENERAR UN ARCHIVO CON LA LISTA DE NOMBRES DE ARCHIVOS A RESPALDAR Y NUMERO TOTAL
-        printf("PADRE(pid=%d): generando LISTA DE ARCHIVOS A RESPALDAR\n", getpid());
-        // Cambiamos a la ruta de la que haremos respaldo
-        chdir(real_docsPath);
-        // Creamos un archivo con el número de archivos a respaldar en la primer línea
-        system("ls -l |tail -n +2 |wc -l > ../listadearchivos.txt");
-        // A partir de la segunda linea, hace un append de los nombres de los archivos
-        system("ls -l >> ../listadearchivos.txt");
-        // Se agrega "fin" para identificar que ya no quedan mas archivos para respaldar
-        system("echo fin >> ../listadearchivos.txt");
-        // Abrimos el archivo para leerlo
-        FILE *archivo;
-        archivo = fopen("../listadearchivos.txt", "r");
+        FILE *archivo = fopen(LISTADO_ARCHIVOS, "w");
+        if (archivo == NULL){
+            fprintf(stderr, "Error al abrir el archivo '%s'.\n", LISTADO_ARCHIVOS);
+            return 1;
+        }
+        int contador = 0; // Contador de archivos
+        // Llamar a la función para listar archivos
+        enlistarArchivos(docsPath, archivo, &contador);
+
 
         // PASO2: SE CREA EL DIRECTORIO DE RESPALDO. SI YA EXISTE, SE ELIMINA
         // Fecha y hora actual
@@ -262,11 +319,13 @@ int main(int num_args, char *args[])
                     // stat fue exitoso --> entonces el archivo o directorio nombre_anterior existe
                     // Posteriormente procede a llenarse st con la información
                     // de nombre_anterior
-                    if (stat(nombre_anterior, &info) == 0){
+                    if (stat(nombre_anterior, &info) == 0)
+                    {
                         printf("PADRE(pid=%d): borrando respaldo viejo...\n", getpid());
                         eliminarDirectorio(nombre_anterior);
                     }
-                    else{
+                    else
+                    {
                         printf("El directorio '%s' no existe.\n", nombre_anterior);
                     }
                     // Liberar la memoria asignada al nombre anterior
@@ -280,7 +339,8 @@ int main(int num_args, char *args[])
         // Permisos 0700:
         // 7: Permiso de lectura, escritura y ejeccion para el propietario
         // 0 Para el grupo y otros (no tienen permisos)
-        if (mkdir(real_backupName, 0700) == 0){
+        if (mkdir(real_backupName, 0700) == 0)
+        {
             printf("creando respaldo nuevo en '%s'\n", real_backupName);
             // Guardar el nombre del nuevo respaldo en el archivo
             archivo_respaldo = fopen(ARCHIVO_RESPALDO, "w");
