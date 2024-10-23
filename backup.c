@@ -1,3 +1,7 @@
+//Casillas Herrera Leonardo Didier
+//Castillo Bautista Samantha Lucia
+//Romero Cervantes Jorge Arturo
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -134,7 +138,7 @@ void lista_y_contador_archivos(const char *ruta_relativa, FILE *archivo, int *co
     
     //Reserva la primera linea del archivo para posteriormente poner el número de archivos
     if(ftell(archivo) == 0){
-        fprintf(archivo, "\n");
+        fprintf(archivo, "\n.");
     }
     enlistarArchivos(ruta_relativa, archivo, contador);
 
