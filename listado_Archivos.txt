@@ -1,0 +1,6 @@
+4
+/DirectorioPrueba/otroArchivo.h
+./DirectorioPrueba/Subdirectorio/archivoEscondido.txt
+./DirectorioPrueba/unArchivo.c
+./DirectorioPrueba/yOtroMas.txt
+fin

@@ -86,7 +86,6 @@ void enlistarArchivos(const char *ruta_relativa, FILE *archivo, int *contador)
     {
         if (S_ISDIR(info.st_mode))
         {
-
             DIR *objetivo = opendir(ruta_relativa);
             struct dirent *entrada;
 
@@ -129,11 +128,25 @@ void enlistarArchivos(const char *ruta_relativa, FILE *archivo, int *contador)
     {
         fprintf(stderr, "Error al obtener la información de '%s'.\n", ruta_relativa);
     }
+}
+
+void lista_y_contador_archivos(const char *ruta_relativa, FILE *archivo, int *contador){
+    
+    //Reserva la primera linea del archivo para posteriormente poner el número de archivos
+    if(ftell(archivo) == 0){
+        fprintf(archivo, "\n");
+    }
+    enlistarArchivos(ruta_relativa, archivo, contador);
+
     // Escribir la cantidad de archivos en la primera línea
-    rewind(archivo); // Volver al inicio del archivo
-    fprintf(archivo, "%d\n", *contador);
-    // Escribir "fin" en la última línea
-    fprintf(archivo, "fin\n");
+    rewind(archivo);  // Volver al inicio del archivo
+    fprintf(archivo, "%d\n", *contador);  // Escribir el número de archivos
+
+    // Ir al final del archivo y escribir "fin"
+    fseek(archivo, 0, SEEK_END);  // Moverse al final del archivo
+    fprintf(archivo, "fin\n");    // Escribir "fin"
+    //Cierra el archivo usado
+    fclose(archivo);
 }
 
 /**
@@ -237,7 +250,7 @@ int main(int num_args, char *args[])
         }
         int contador = 0; // Contador de archivos
         // Llamar a la función para listar archivos
-        enlistarArchivos(docsPath, archivo, &contador);
+        lista_y_contador_archivos(docsPath, archivo, &contador);
 
         // PASO2: SE CREA EL DIRECTORIO DE RESPALDO. SI YA EXISTE, SE ELIMINA
         // Fecha y hora actual
