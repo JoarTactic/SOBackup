@@ -383,7 +383,7 @@ int main(int num_args, char *args[])
         for (int i = 0; i < num_archivos; i++)
         {
             read(pipefd[0], buffer, sizeof(buffer)); // Recibe el nombre del archivo
-            
+            char ruta_origen[MAX_BUFFER], ruta_destino[MAX_BUFFER];
             //Asignar memoria a ruta_origen de forma dinámica
             /*
             longitud_ruta = strlen(docsFolder) + strlen(buffer) + 1;
@@ -409,7 +409,7 @@ int main(int num_args, char *args[])
             printf("Ruta destino: %s + %s = %s\n",docsBackup, buffer, ruta_destino);
 
 
-            FILE *origen = fopen(ruta_origen, "r");
+            /*FILE *origen = fopen(ruta_origen, "r");
             FILE *destino = fopen(ruta_destino, "w");
             if (origen != NULL && destino != NULL)
             {
@@ -421,9 +421,12 @@ int main(int num_args, char *args[])
             }
             fclose(origen);
             fclose(destino);
+            */
+
             //De la memoria dinamica
             //free(ruta_origen);
             //free(ruta_destino);
+            copiar_archivo(ruta_origen, ruta_destino);
         }
 
         // Informar al padre cuántos archivos se respaldaron
