@@ -12,7 +12,7 @@
 
 #define ARCHIVO_RESPALDO "ultimo_respaldo.txt"
 #define LISTADO_ARCHIVOS "./listado_Archivos.txt"
-
+#define MAX_BUFFER 128
 // Función recursiva para eliminar archivos/directorios y listar su eliminación
 void eliminarDirectorio(const char *ruta_relativa)
 {
@@ -81,183 +81,9 @@ void eliminarDirectorio(const char *ruta_relativa)
     }
 }
 
-// Para poner en un txt la lista
-void enlistarArchivos(const char *ruta_relativa, FILE *archivo, int *contador)
-{
-    struct stat info;
-    // Se obtene información del archivo/directorio
-    if (stat(ruta_relativa, &info) == 0)
-    {
-        if (S_ISDIR(info.st_mode))
-        {
-            DIR *objetivo = opendir(ruta_relativa);
-            struct dirent *entrada;
-
-            if (objetivo == NULL)
-            {
-                fprintf(stderr, "Error abriendo el directorio '%s'.\n", ruta_relativa);
-                return;
-            }
-            // Lee el contenido del directorio
-            while ((entrada = readdir(objetivo)) != NULL)
-            {
-                if (strcmp(entrada->d_name, ".") == 0 || strcmp(entrada->d_name, "..") == 0)
-                {
-                    continue; // Se salta a la siguiente iteración del while
-                }
-                // Se calcula el tamaño necesario para almacenar la ruta relativa completa
-                size_t longitud_ruta = strlen(ruta_relativa) + strlen(entrada->d_name) + 2; // +2 para '/' y '\0'
-                // Se asigna memoria dinámica
-                char *ruta_elemento = (char *)malloc(longitud_ruta * sizeof(char));
-                if (ruta_elemento == NULL)
-                {
-                    fprintf(stderr, "Error: No se pudo asignar memoria al nombre de subdirectorio.\n");
-                    closedir(objetivo); // Asegurarse de cerrar el directorio antes de salir por falla
-                    return;
-                }
-                // Construir la ruta del elemento
-                snprintf(ruta_elemento, longitud_ruta, "%s/%s", ruta_relativa, entrada->d_name);
-                enlistarArchivos(ruta_elemento, archivo, contador);
-                free(ruta_elemento);
-            }
-            closedir(objetivo);
-        }
-        else
-        {
-            fprintf(archivo, "%s\n", ruta_relativa);
-            (*contador)++;
-        }
-    }
-    else
-    {
-        fprintf(stderr, "Error al obtener la información de '%s'.\n", ruta_relativa);
-    }
-}
-
-void lista_y_contador_archivos(const char *ruta_relativa, FILE *archivo, int *contador){
-    
-    //Reserva la primera linea del archivo para posteriormente poner el número de archivos
-    if(ftell(archivo) == 0){
-        fprintf(archivo, "\n.");
-    }
-    enlistarArchivos(ruta_relativa, archivo, contador);
-
-    // Escribir la cantidad de archivos en la primera línea
-    rewind(archivo);  // Volver al inicio del archivo
-    fprintf(archivo, "%d\n", *contador);  // Escribir el número de archivos
-
-    // Ir al final del archivo y escribir "fin"
-    fseek(archivo, 0, SEEK_END);  // Moverse al final del archivo
-    fprintf(archivo, "fin\n");    // Escribir "fin"
-    //Cierra el archivo usado
-    fclose(archivo);
-}
-
-/**
- * num_args: Contador de Argumentos
- * args: Argumentos
- */
-int main(int num_args, char *args[])
-{
-    // Si no recibe los argumentos suficientes correspondientes
-    // a la ruta relativa del directorio a respaldar y donde se
-    // guardara el respaldo, entonces termina el programa
-    if (num_args != 3)
-    {
-        // Mensaje de error
-        fprintf(stderr, "Forma de uso: %s ./<directorio_a_respaldar> ./<directorio_del_respaldo>\n", args[0]);
-        return 1;
-    }
-
-    // Directorio a respaldar
-    char *docsPath = args[1]; // Ruta relativa
-    char *real_docsPath;      // Variable donde se almacenará ruta absoluta
-    // Directorio donde se almacenará el respaldo
-    char *backupPath = args[2];
-    char *real_backupPath;
-
-    // Creación de los arreglos para los pipes
-    int pipefd[2], pipe2fd[2];
-
-    // Creación de los pipes
-    if (pipe(pipefd) < 0 || pipe(pipe2fd) < 0)
-    {
-        perror("No se pudo crear el pipe");
-        exit(1);
-    }
-
-    // Creación del proceso hijo
-    int pid;
-    pid = fork();
-    switch (pid)
-    {
-    case -1: // Error
-        printf("No se ha podido crear un hijo\n");
-        exit(-1);
-        break;
-    case 0:                // Hijo
-        close(pipefd[1]);  // Cerrar el extremo de escritura del pipe padre-hijo
-        close(pipe2fd[0]); // Cerrar el extremo de lectura del pipe hijo-padre
-        // Leer la ruta del respaldo
-        char buffer[256];
-        read(pipefd[0], buffer, sizeof(buffer));
-        // Leer el número de archivos a respaldar
-        int num_archivos;
-        read(pipefd[0], &num_archivos, sizeof(num_archivos));
-
-        char carpeta[256]; // Declarar el buffer 'carpeta'
-        strcpy(carpeta, buffer);
-
-        for (int i = 0; i < num_archivos; i++)
-        {
-            read(pipefd[0], buffer, sizeof(buffer)); // Recibe el nombre del archivo
-
-            // Formar las rutas de origen y destino
-            char ruta_origen[256], ruta_destino[256];
-            snprintf(ruta_origen, sizeof(ruta_origen), "%s/%s", real_docsPath, buffer);
-            snprintf(ruta_destino, sizeof(ruta_destino), "%s/%s", carpeta, buffer);
-
-            // Copiar archivo
-            FILE *origen = fopen(ruta_origen, "r");
-            FILE *destino = fopen(ruta_destino, "w");
-            if (origen != NULL && destino != NULL)
-            {
-                char c;
-                while ((c = fgetc(origen)) != EOF)
-                {
-                    fputc(c, destino);
-                }
-            }
-            fclose(origen);
-            fclose(destino);
-        }
-
-        // Informar al padre cuántos archivos se respaldaron
-        write(pipe2fd[1], &num_archivos, sizeof(num_archivos));
-        close(pipefd[0]);
-        close(pipe2fd[1]);
-        exit(0);
-        break;
-    default: // Padre
-        int numero_archivos_respaldados = 0;
-        // Cerramos la lectura del padre en el pipe
-        close(pipefd[0]);
-        // Cerramos la escritura del padre en el pipe2
-        close(pipe2fd[1]);
-
-        // PASO 1: GENERAR UN ARCHIVO CON LA LISTA DE NOMBRES DE ARCHIVOS A RESPALDAR Y NUMERO TOTAL
-        FILE *archivo = fopen(LISTADO_ARCHIVOS, "w");
-        if (archivo == NULL)
-        {
-            fprintf(stderr, "Error al abrir el archivo '%s'.\n", LISTADO_ARCHIVOS);
-            return 1;
-        }
-        int contador = 0; // Contador de archivos
-        // Llamar a la función para listar archivos
-        lista_y_contador_archivos(docsPath, archivo, &contador);
-
-        // PASO2: SE CREA EL DIRECTORIO DE RESPALDO. SI YA EXISTE, SE ELIMINA
-        // Fecha y hora actual
+// Crear nueva carpeta de respaldo, y borrar la vieja
+void renovar_carpeta_respaldo(char *backupPath){
+    // Fecha y hora actual
         time_t t = time(NULL);
         struct tm tiempo = *localtime(&t);
 
@@ -271,7 +97,7 @@ int main(int num_args, char *args[])
         {
             fprintf(stderr, "Error al asignar memoria al nombre del directorio del respaldo.\n");
             free(real_backupName);
-            return 1;
+            return;
         }
 
         // Crear la cadena con el nombre base + fecha y hora
@@ -306,7 +132,7 @@ int main(int num_args, char *args[])
                     fprintf(stderr, "Error al asignar memoria para el nombre anterior.\n");
                     free(nombre_anterior);    // Liberar memoria del nombre nuevo
                     fclose(archivo_respaldo); // Se cierra el archivo
-                    return 1;
+                    return;
                 }
                 else
                 { // Si se logro asignar memoria
@@ -356,6 +182,15 @@ int main(int num_args, char *args[])
             {
                 fprintf(archivo_respaldo, "%s\n", real_backupName);
                 fclose(archivo_respaldo);
+                //Tambien se guarda en la variable para su uso futuro:}
+                char *backupPath = (char *)malloc((strlen(real_backupName) + 1) * sizeof(char)); // +1 para el terminador '\0'
+                if (backupPath == NULL) {
+                    fprintf(stderr, "Error al guardar el nombre del nuevo respaldo en una variable.\n");
+                    return; // Retorna NULL si falla la asignación
+                }
+
+                // Copiar el contenido del buffer al puntero `linea`
+                strcpy(backupPath, real_backupName);
             }
             else
             {
@@ -366,37 +201,272 @@ int main(int num_args, char *args[])
         {
             fprintf(stderr, "Error al crear el directorio de respaldo.\n");
             free(real_backupName); // Libera memoria antes de salir
-            return 1;
+            return;
         }
-        printf("El Paso 2 se cumplio con exito\n");
+}
+
+
+// Para poner en un txt la lista
+void enlistarArchivos(const char *ruta_relativa, FILE *archivo, int *contador)
+{
+    struct stat info;
+    // Se obtene información del archivo/directorio
+    if (stat(ruta_relativa, &info) == 0)
+    {
+        if (S_ISDIR(info.st_mode))
+        {
+            DIR *objetivo = opendir(ruta_relativa);
+            struct dirent *entrada;
+
+            if (objetivo == NULL)
+            {
+                fprintf(stderr, "Error abriendo el directorio '%s'.\n", ruta_relativa);
+                return;
+            }
+            // Lee el contenido del directorio
+            while ((entrada = readdir(objetivo)) != NULL)
+            {
+                if (strcmp(entrada->d_name, ".") == 0 || strcmp(entrada->d_name, "..") == 0)
+                {
+                    continue; // Se salta a la siguiente iteración del while
+                }
+                // Se calcula el tamaño necesario para almacenar la ruta relativa completa
+                size_t longitud_ruta = strlen(ruta_relativa) + strlen(entrada->d_name) + 2; // +2 para '/' y '\0'
+                // Se asigna memoria dinámica
+                char *ruta_elemento = (char *)malloc(longitud_ruta * sizeof(char));
+                if (ruta_elemento == NULL)
+                {
+                    fprintf(stderr, "Error: No se pudo asignar memoria al nombre de subdirectorio.\n");
+                    closedir(objetivo); // Asegurarse de cerrar el directorio antes de salir por falla
+                    return;
+                }
+                // Construir la ruta del elemento
+                snprintf(ruta_elemento, longitud_ruta, "%s/%s", ruta_relativa, entrada->d_name);
+                enlistarArchivos(ruta_elemento, archivo, contador);
+                free(ruta_elemento);
+            }
+            closedir(objetivo);
+        }
+        else
+        {
+            char* ruta_truncada = strchr(ruta_relativa, '/');
+            char* ruta_archivo = strchr(ruta_truncada + 1, '/');
+            fprintf(archivo, "%s\n", ruta_archivo);
+            (*contador)++;
+        }
+    }
+    else
+    {
+        fprintf(stderr, "Error al obtener la información de '%s'.\n", ruta_relativa);
+    }
+}
+
+
+
+void lista_y_contador_archivos(const char *ruta_relativa, int *contador){
+    
+    FILE *archivo = fopen(LISTADO_ARCHIVOS, "w");
+    if (archivo == NULL){
+        fprintf(stderr, "Error al abrir el archivo '%s'.\n", LISTADO_ARCHIVOS);
+        return;
+    }
+    //int *contador = 0; // Contador de archivos
+
+    //Reserva la primera linea del archivo para posteriormente poner el número de archivos
+    if(ftell(archivo) == 0){
+        fprintf(archivo, "\n.");
+    }
+    enlistarArchivos(ruta_relativa, archivo, contador);
+
+    // Escribir la cantidad de archivos en la primera línea
+    rewind(archivo);  // Volver al inicio del archivo
+    fprintf(archivo, "%d\n", *contador);  // Escribir el número de archivos
+
+    // Ir al final del archivo y escribir "fin"
+    fseek(archivo, 0, SEEK_END);  // Moverse al final del archivo
+    fprintf(archivo, "FIN\n");    // Escribir "fin"
+    //Cierra el archivo usado
+    fclose(archivo);
+}
+
+/**
+ * num_args: Contador de Argumentos
+ * args: Argumentos
+ */
+int main(int num_args, char *args[])
+{
+    // Si no recibe los argumentos suficientes correspondientes
+    // a la ruta relativa del directorio a respaldar y donde se
+    // guardara el respaldo, entonces termina el programa
+    if (num_args != 3)
+    {
+        // Mensaje de error
+        fprintf(stderr, "Forma de uso: %s ./<directorio_a_respaldar> ./<directorio_del_respaldo>\n", args[0]);
+        return 1;
+    }
+
+    // Creación de los arreglos para los pipes
+    int pipefd[2], pipe2fd[2];
+
+    // Creación de los pipes
+    if (pipe(pipefd) < 0 || pipe(pipe2fd) < 0)
+    {
+        perror("No se pudo crear el pipe");
+        exit(1);
+    }
+
+    // Creación del proceso hijo
+    int pid;
+    pid = fork();
+    switch (pid){
+
+    case -1: // Error
+        printf("No se ha podido crear un hijo\n");
+        exit(-1);
+        break;
+
+    case 0:                // Hijo
+        close(pipefd[1]);  // Cerrar el extremo de escritura del pipe padre-hijo
+        close(pipe2fd[0]); // Cerrar el extremo de lectura del pipe hijo-padre
+        char buffer[MAX_BUFFER];
+
+        //PASO 1: El hijo imprime un mensaje indicando que está esperando el mensaje del padre 
+        printf("Soy hijo, y estoy esperando a mi padre\n");
+
+        //PASO 2: Se queda en espera con un ciclo en el read(…) hasta que el padre envíe el 
+        //nombre del archivo a respaldar 
+        //Primero se recibe la carperta donde estan los archivos a respaldar, y donde se respaldaran
+        read(pipefd[0], buffer, sizeof(buffer));
+        // Guardar la carpeta de origen
+        char *docsFolder = (char *)malloc((strlen(buffer) + 1) * sizeof(char));
+        if (docsFolder == NULL){
+            fprintf(stderr, "Error en hijo: No se pudo asignar memoria a la carpeta origen.\n");
+        }
+        strcpy(docsFolder, buffer);
+        // Guardar las carpeta de destino 
+        read(pipefd[0], buffer, sizeof(buffer));
+        char *docsBackup = (char *)malloc((strlen(buffer) + 1) * sizeof(char));
+        if (docsBackup == NULL){
+            fprintf(stderr, "Error en hijo: No se pudo asignar memoria a la carpeta destino.\n");
+        }
+        strcpy(docsBackup, buffer);
+
+        //PASO 3 Y 4: Cuando el hijo recibe el número (cadena de texto): 
+        //No olvides convertirla a un entero (atoi(..)) 
+        int num_archivos;
+        read(pipefd[0], &num_archivos, sizeof(num_archivos));
+
+        //PASO 5: El hijo recibe del padre el nombre del archivo y realiza la 
+        //copia del directorio origen al directorio destino. 
+        size_t longitud_ruta;
+        char ruta_origen[100], ruta_destino[100];
+        for (int i = 0; i < num_archivos; i++)
+        {
+            read(pipefd[0], buffer, sizeof(buffer)); // Recibe el nombre del archivo
+            
+            //Asignar memoria a ruta_origen de forma dinámica
+            /*
+            longitud_ruta = strlen(docsFolder) + strlen(buffer) + 1;
+            char *ruta_origen = (char *)malloc(longitud_ruta * sizeof(char));
+            if (ruta_origen == NULL) {
+                fprintf(stderr, "Error: no se pudo asignar memoria a ruta_origen.\n");
+                return 1;
+            }
+            */
+            //Asignar memoria a ruta_destino de forma dinámica
+            /*
+            longitud_ruta = strlen(docsBackup) + strlen(buffer) + 1;
+            char *ruta_destino = (char *)malloc(longitud_ruta * sizeof(char));
+            if (ruta_destino == NULL) {
+                fprintf(stderr, "Error: no se pudo asignar memoria a ruta_destino.\n");
+                return 1;
+            }
+            */
+            snprintf(ruta_origen, sizeof(ruta_origen), "%s%s", docsFolder, buffer);
+            snprintf(ruta_destino, sizeof(ruta_destino), "%s%s", docsBackup, buffer);
+            //Comprobacion
+            printf("Ruta origen: %s + %s = %s\n",docsFolder, buffer, ruta_origen);
+            printf("Ruta destino: %s + %s = %s\n",docsBackup, buffer, ruta_destino);
+
+
+            FILE *origen = fopen(ruta_origen, "r");
+            FILE *destino = fopen(ruta_destino, "w");
+            if (origen != NULL && destino != NULL)
+            {
+                char c;
+                while ((c = fgetc(origen)) != EOF)
+                {
+                    fputc(c, destino);
+                }
+            }
+            fclose(origen);
+            fclose(destino);
+            //De la memoria dinamica
+            //free(ruta_origen);
+            //free(ruta_destino);
+        }
+
+        // Informar al padre cuántos archivos se respaldaron
+        write(pipe2fd[1], &num_archivos, sizeof(num_archivos));
+        close(pipefd[0]);
+        close(pipe2fd[1]);
+        exit(0);
+        break;
+
+    default: // Padre
+        char *docsPath = args[1]; // Directorio a respaldar
+        char *backupPath = args[2]; // Directorio donde se almacenará el respaldo
+
+        int numero_archivos_respaldados = 0;
+        close(pipefd[0]); // Cerramos la lectura del padre en el pipe
+        close(pipe2fd[1]); // Cerramos la escritura del padre en el pipe2
+
+        // PASO 1: GENERAR UN ARCHIVO CON LA LISTA DE NOMBRES DE ARCHIVOS A RESPALDAR Y NUMERO TOTAL
+        int contador = 0;
+        lista_y_contador_archivos(docsPath, &contador);
+
+        // PASO2: SE CREA EL DIRECTORIO DE RESPALDO. SI YA EXISTE, SE ELIMINA
+        renovar_carpeta_respaldo(backupPath);
 
         // PASO 3: SE ENVIA A HIJO EL NOMBRE DE LOS ARCHIVOS Y EL NUMERO A RESPALDAR
-        // Le enviamos al hijo la ruta de la carpeta
-        char buffer2[100];
-        strcpy(buffer2, real_backupPath);
-        write(pipefd[1], buffer2, sizeof(buffer2));
-
-        // Le enviamos al hijo el numero de archivos a respaldar
+        FILE *archivo = fopen(LISTADO_ARCHIVOS, "r");
+        if (archivo == NULL) {
+            fprintf(stderr, "Error al abrir el listado de archivos");
+            return 1;
+        }
+        // Le enviamos al hijo la ruta de la carpeta a respaldar y la de respaldo
+        char buffer_padre[MAX_BUFFER];
+        strcpy(buffer_padre, docsPath);
+        write(pipefd[1], buffer_padre, sizeof(buffer_padre));
+        strcpy(buffer_padre, backupPath);
+        write(pipefd[1], buffer_padre, sizeof(buffer_padre));
+        //Variable usada como buffer para almacenar cualquier linea de un archivo .txt
         static char linea[100];
-        // Lo obtiene como char
-        char *texto_numero_archivos = fgets(linea, sizeof(linea), archivo);
-        // Convertirlo a número
-        int numero_archivos = atoi(texto_numero_archivos);
+        // Le enviamos al hijo el numero de archivos a respaldar
+        if (fgets(linea, sizeof(linea), archivo) == NULL) {
+            fprintf(stderr, "Error al obtener el numero de archivos");
+        }
+        // Convertir la cadena a un entero
+        int numero_archivos = atoi(linea);
         // Se manda ese número al hijo
         write(pipefd[1], &numero_archivos, sizeof(numero_archivos));
-        // Se manda 1 por 1 el nombre de los archivos al hijo
-        int i = numero_archivos;
-        while (i > -1)
-        {
-            char *nombre_archivo = fgets(linea, sizeof(linea), archivo);
-            strcpy(buffer2, nombre_archivo);
-            write(pipefd[1], buffer2, sizeof(buffer2));
-            i--;
+        
+        
+        //PASO 4: El padre estará en un ciclo leyendo el nombre del archivo y enviándoselo a su hijo
+        while (fgets(linea, sizeof(linea), archivo)) {
+            //Pasa la dirección escrita en la linea del archivo
+            write(pipefd[1], linea, sizeof(linea));
+            // Verificar si la línea contiene la palabra clave "fin"
+            if (strstr(linea, "FIN") != NULL) {
+                break;
+            }
         }
+        fclose(archivo);
         // Se cierra la escritura cuando acabe de mandar los nombres al hijo
         close(pipefd[1]);
 
-        // Esperar respuesta del hijo con número de archivos respaldados
+        //PASO 5: El padre se queda pendiente con read(..) hasta que el hijo envié el número de 
+        //archivos respaldados con éxito y realiza la comprobación. 
         int recibido = 0;
         while (1)
         {
