@@ -9,6 +9,7 @@
 #include <sys/stat.h>
 #include <dirent.h>
 #include <time.h>
+#include <fcntl.h>
 
 #define ARCHIVO_RESPALDO "ultimo_respaldo.txt"
 #define LISTADO_ARCHIVOS "./listado_Archivos.txt"
@@ -287,6 +288,25 @@ void lista_y_contador_archivos(const char *ruta_relativa, int *contador){
     fprintf(archivo, "FIN\n");    // Escribir "fin"
     //Cierra el archivo usado
     fclose(archivo);
+}
+
+void copiar_archivo(const char *origen, const char *destino) {
+    int leer_origen = open(origen, O_RDONLY);
+    int escribir_destino = open(destino, O_WRONLY | O_CREAT, 0644);
+
+    if (leer_origen < 0 || escribir_destino < 0) {
+        printf("Error abriendo archivos\n");
+        exit(EXIT_FAILURE);
+    }
+
+    char buffer[MAX_BUFFER];
+    ssize_t bytes;
+    while ((bytes = read(leer_origen, buffer, sizeof(buffer))) > 0) {
+        write(escribir_destino, buffer, bytes);
+    }
+
+    close(leer_origen);
+    close(escribir_destino);
 }
 
 /**
