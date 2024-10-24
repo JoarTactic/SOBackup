@@ -9,6 +9,7 @@
 #include <sys/stat.h>
 #include <dirent.h>
 #include <time.h>
+#include <fcntl.h>
 
 #define ARCHIVO_RESPALDO "ultimo_respaldo.txt"
 #define LISTADO_ARCHIVOS "./listado_Archivos.txt"
@@ -298,6 +299,29 @@ void lista_y_contador_archivos(const char *ruta_relativa, int *contador)
     fclose(archivo);
 }
 
+void copiar_archivo(const char *origen, const char *destino) {
+    int leer_origen = open(origen, O_RDONLY);
+    int escribir_destino = open(destino, O_WRONLY | O_CREAT, 0644);
+
+    // Comprobacion
+    printf("\tRuta origen: %s\n", origen);
+    printf("\tRuta destino: %s\n", destino);
+
+    if (leer_origen < 0 || escribir_destino < 0) {
+        printf("Error abriendo archivos\n");
+        exit(EXIT_FAILURE);
+    }
+
+    char buffer[MAX_BUFFER];
+    ssize_t bytes;
+    while ((bytes = read(leer_origen, buffer, sizeof(buffer))) > 0) {
+        write(escribir_destino, buffer, bytes);
+    }
+
+    close(leer_origen);
+    close(escribir_destino);
+}
+
 /**
  * num_args: Contador de Argumentos
  * args: Argumentos
@@ -374,9 +398,8 @@ int main(int num_args, char *args[])
         for (int i = 0; i < num_archivos; i++)
         {
             read(pipefd[0], buffer, sizeof(buffer)); // Recibe el nombre del archivo
-
-            // Asignar memoria a ruta_origen de forma dinámica
-
+            
+            //Asignar memoria a ruta_origen de forma dinámica
             longitud_ruta = strlen(docsFolder) + strlen(buffer) + 1;
             char *ruta_origen = (char *)malloc(longitud_ruta * sizeof(char));
             if (ruta_origen == NULL)
@@ -396,23 +419,9 @@ int main(int num_args, char *args[])
                 return 1;
             }
             snprintf(ruta_destino, longitud_ruta, "%s%s", docsBackup, buffer);
-            // Comprobacion
-            printf("Ruta origen: %s + %s = %s\n", docsFolder, buffer, ruta_origen);
-            printf("Ruta destino: %s + %s = %s\n", docsBackup, buffer, ruta_destino);
 
-            FILE *origen = fopen(ruta_origen, "r");
-            FILE *destino = fopen(ruta_destino, "w");
-            if (origen != NULL && destino != NULL)
-            {
-                char c;
-                while ((c = fgetc(origen)) != EOF)
-                {
-                    fputc(c, destino);
-                }
-            }
-            fclose(origen);
-            fclose(destino);
-            // De la memoria dinamica
+            //De la memoria dinamica
+            copiar_archivo(ruta_origen, ruta_destino);
             free(ruta_origen);
             free(ruta_destino);
         }
